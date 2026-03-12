@@ -1,49 +1,56 @@
 #!/bin/bash
 
 # +--------------------+
-# GENERAL
+#  INSTALACIÓN TRIVY (Kali / Debian / Ubuntu modernos)
 # +--------------------+
 
-## Installs dependencies for Trivy course
-
-## Tested on (3/2021):
-## Kali Linux 2021.1.0
-## Ubuntu 20.04 (we'll use this script on an Ubuntu build server later in the course)
-
-# NOTE: This script is NOT guaranteed to work into the future
-# (packages can be removed from package repositories, etc.)
-
-# +--------------------+
-# MAIN INSTALLATION LOGIC
-# +--------------------+
-
+set -e
 export DEBIAN_FRONTEND=noninteractive
 
-#distro="bullseye"
+echo "Actualizando paquetes..."
+sudo apt-get update -y
 
+echo "Instalando dependencias..."
+sudo apt-get install -y wget apt-transport-https curl gnupg
+
+# Obtener nombre de la distribución (bullseye, bookworm, kali-rolling…)
 distro="$(lsb_release -sc)"
 
-sudo apt-get -y update &&\
-    sudo apt-get -y install wget \
-        apt-transport-https \
-        gnupg  &&\
-    wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key |
-        sudo apt-key add - &&\
-    echo deb https://aquasecurity.github.io/trivy-repo/deb $distro main |
-        sudo tee -a /etc/apt/sources.list.d/trivy.list &&\
-    sudo apt-get update && sudo apt-get install -y trivy
+echo "Añadiendo clave GPG de Trivy..."
+curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key \
+    | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
 
+echo "Añadiendo repositorio de Trivy..."
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $distro main" \
+    | sudo tee /etc/apt/sources.list.d/trivy.list
+
+echo "Instalando Trivy..."
+sudo apt-get update -y
+sudo apt-get install -y trivy
+
+# +--------------------+
+#   Container-diff
+# +--------------------+
+
+echo "Instalando container-diff..."
 sudo wget -O /usr/local/bin/container-diff \
-    https://storage.googleapis.com/container-diff/v0.16.0/container-diff-linux-amd64 &&\
-    sudo chmod +x /usr/local/bin/container-diff
+    https://storage.googleapis.com/container-diff/v0.16.0/container-diff-linux-amd64
+sudo chmod +x /usr/local/bin/container-diff
+
+# +--------------------+
+#   Docker
+# +--------------------+
 
 if [[ "$GITHUB_ACTIONS" == "true" ]]; then
-    echo "Running within Github Actions.  Docker is already installed"
+    echo "Ejecutando en GitHub Actions — Docker ya está instalado."
 else
-    sudo apt-get install -y docker.io &&\
-        sudo usermod -aG docker $USER
+    echo "Instalando Docker..."
+    sudo apt-get install -y docker.io
+    sudo usermod -aG docker $USER
 fi
 
 echo "----------------------------------------------------------------"
-echo "Instalación finalizada!"
+echo "Instalación finalizada correctamente"
+echo "Trivy instalado en: /usr/bin/trivy"
+echo "container-diff en: /usr/local/bin/container-diff"
 echo "----------------------------------------------------------------"
